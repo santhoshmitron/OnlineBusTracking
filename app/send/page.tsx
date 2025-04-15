@@ -45,7 +45,8 @@ export default function SendPage({
     const queryString = new URLSearchParams(cleanParams).toString();
     const response = await fetch(
       `${
-        process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        "https://online-bus-tracking.vercel.app"
       }/api/vehicle-data?${queryString}`,
       {
         cache: "no-store",
