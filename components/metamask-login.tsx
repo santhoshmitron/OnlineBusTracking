@@ -1,10 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Loader2, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { ethers } from "ethers";
+
+// Define proper types for ethereum provider
+interface EthereumProvider extends ethers.Eip1193Provider {
+  isMetaMask?: boolean;
+  request: (request: { method: string; params?: any[] }) => Promise<any>;
+  on: (event: string, callback: (...args: any[]) => void) => void;
+  removeListener: (event: string, callback: (...args: any[]) => void) => void;
+}
+
+interface WindowWithEthereum extends Window {
+  ethereum?: EthereumProvider;
+}
 
 export default function MetaMaskLogin() {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,7 +30,7 @@ export default function MetaMaskLogin() {
   useEffect(() => {
     // Check if MetaMask is installed
     if (typeof window !== "undefined") {
-      const { ethereum } = window as any;
+      const { ethereum } = window as WindowWithEthereum;
       setIsMetaMaskInstalled(!!ethereum && !!ethereum.isMetaMask);
     }
   }, []);
@@ -40,7 +52,7 @@ export default function MetaMaskLogin() {
 
     try {
       if (typeof window !== "undefined") {
-        const { ethereum } = window as any;
+        const { ethereum } = window as WindowWithEthereum;
 
         if (!ethereum) {
           setError(
@@ -52,10 +64,11 @@ export default function MetaMaskLogin() {
           return;
         }
 
+        // Use ethers.js to connect to MetaMask
+        const provider = new ethers.BrowserProvider(ethereum);
+
         // Request account access
-        const accounts = await ethereum.request({
-          method: "eth_requestAccounts",
-        });
+        const accounts = await provider.send("eth_requestAccounts", []);
 
         // Get the first account
         const account = accounts[0];
@@ -64,10 +77,16 @@ export default function MetaMaskLogin() {
         setIsLoading(false);
         setIsConnecting(false);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error connecting to MetaMask:", error);
 
-      if (error.code === 4001) {
+      // Type guard to check if error is an object with a code property
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === 4001
+      ) {
         // User rejected the request
         setError(
           "You rejected the connection request. Please approve the connection to continue."
@@ -97,7 +116,7 @@ export default function MetaMaskLogin() {
         </div>
 
         <h1 className="text-2xl font-bold text-center text-slate-900 dark:text-white mb-2">
-          Welcome to Online Bus Tracking System
+          Welcome to Vehicle Data Display
         </h1>
 
         <p className="text-slate-600 dark:text-slate-300 text-center mb-8">
