@@ -5,18 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Loader2, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { ethers } from "ethers";
-
-// Define proper types for ethereum provider
-interface EthereumProvider extends ethers.Eip1193Provider {
-  isMetaMask?: boolean;
-  request: (request: { method: string; params?: any[] }) => Promise<any>;
-  on: (event: string, callback: (...args: any[]) => void) => void;
-  removeListener: (event: string, callback: (...args: any[]) => void) => void;
-}
-
-interface WindowWithEthereum extends Window {
-  ethereum?: EthereumProvider;
-}
+import type { ProviderRpcError } from "@/types/ethereum";
 
 export default function MetaMaskLogin() {
   const [isLoading, setIsLoading] = useState(false);
@@ -30,8 +19,7 @@ export default function MetaMaskLogin() {
   useEffect(() => {
     // Check if MetaMask is installed
     if (typeof window !== "undefined") {
-      const { ethereum } = window as WindowWithEthereum;
-      setIsMetaMaskInstalled(!!ethereum && !!ethereum.isMetaMask);
+      setIsMetaMaskInstalled(!!window.ethereum && !!window.ethereum.isMetaMask);
     }
   }, []);
 
@@ -51,21 +39,9 @@ export default function MetaMaskLogin() {
     setIsConnecting(true);
 
     try {
-      if (typeof window !== "undefined") {
-        const { ethereum } = window as WindowWithEthereum;
-
-        if (!ethereum) {
-          setError(
-            "MetaMask is not installed. Please install MetaMask to continue."
-          );
-          setIsMetaMaskInstalled(false);
-          setIsLoading(false);
-          setIsConnecting(false);
-          return;
-        }
-
+      if (typeof window !== "undefined" && window.ethereum) {
         // Use ethers.js to connect to MetaMask
-        const provider = new ethers.BrowserProvider(ethereum);
+        const provider = new ethers.BrowserProvider(window.ethereum);
 
         // Request account access
         const accounts = await provider.send("eth_requestAccounts", []);
@@ -76,17 +52,20 @@ export default function MetaMaskLogin() {
         setIsSuccess(true);
         setIsLoading(false);
         setIsConnecting(false);
+      } else {
+        setError(
+          "MetaMask is not installed. Please install MetaMask to continue."
+        );
+        setIsMetaMaskInstalled(false);
+        setIsLoading(false);
+        setIsConnecting(false);
       }
     } catch (error) {
       console.error("Error connecting to MetaMask:", error);
 
-      // Type guard to check if error is an object with a code property
-      if (
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === 4001
-      ) {
+      // Type guard to check if error is a ProviderRpcError
+      const providerError = error as ProviderRpcError;
+      if (providerError.code === 4001) {
         // User rejected the request
         setError(
           "You rejected the connection request. Please approve the connection to continue."
